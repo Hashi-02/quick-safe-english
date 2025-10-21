@@ -11,7 +11,9 @@ import SwiftUI
 struct quick_safe_englishApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NavigationStack {
+                MainView()
+            }
         }
     }
 }

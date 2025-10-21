@@ -1,0 +1,24 @@
+[
+    {
+        "name": "Normal",
+        "sections": [
+            {
+                "title": "日常会話 1",
+                "phrases": [
+                    { "japanese": "こんにちは", "english": "Hello" },
+                    { "japanese": "お元気ですか？", "english": "How are you?" },
+                    { "japanese": "さようなら", "english": "Goodbye" }
+                ]
+            },
+            {
+                "title": "日常会話 2",
+                "phrases": [
+                    { "japanese": "ありがとう", "english": "Thank you" },
+                    { "japanese": "どういたしまして", "english": "You're welcome" },
+                    { "japanese": "また会いましょう", "english": "See you again" }
+                ]
+            }
+        ]
+    }
+]
+
