@@ -5,46 +5,56 @@
 //  Created by hassie on 2025/10/21.
 //
 
+// ViewModels/PracticeViewModel.swift
 import Foundation
 import AVFoundation
 
 final class PracticeViewModel: ObservableObject {
     @Published var currentPhrase: Phrase?
     @Published var showingEnglish = false
+    @Published var didFinishSection = false
+    
     private var phrases: [Phrase] = []
     private var currentIndex = 0
     private let synthesizer = AVSpeechSynthesizer()
     
-    // JSONからセクションのフレーズをロード
     func load(sectionTitle: String) {
+        didFinishSection = false
+        showingEnglish = false
+        stopSpeaking()
+        
         guard let url = Bundle.main.url(forResource: "PracticeData", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let modes = try? JSONDecoder().decode([PracticeMode].self, from: data)
-        else {
-            print("データ読み込み失敗")
-            return
-        }
+        else { return }
         
-        // Normalモード内の対象セクションを取得
-        if let section = modes.first?.sections.first(where: { $0.title == sectionTitle }) {
-            self.phrases = section.phrases
-            self.currentIndex = 0
-            self.currentPhrase = phrases.first
-            speakJapanese()
-        }
+        // 必要ならモード名で絞る: 今は全モードからタイトル一致のセクションを探す
+        let section = modes
+            .flatMap { $0.sections }
+            .first(where: { $0.title == sectionTitle })
+        
+        phrases = section?.phrases ?? []
+        currentIndex = 0
+        currentPhrase = phrases.first
+        speakJapanese()
     }
     
     func next() {
         guard !phrases.isEmpty else { return }
+        stopSpeaking()
         
         if showingEnglish {
-            // 英語表示中 → 次の日本語へ
-            showingEnglish = false
-            currentIndex = (currentIndex + 1) % phrases.count
-            currentPhrase = phrases[currentIndex]
-            speakJapanese()
+            // 次のフレーズ（日本語）へ。最後なら終了を通知して戻る。
+            if currentIndex + 1 < phrases.count {
+                currentIndex += 1
+                currentPhrase = phrases[currentIndex]
+                showingEnglish = false
+                speakJapanese()
+            } else {
+                didFinishSection = true
+            }
         } else {
-            // 日本語表示中 → 英語へ
+            // 日本語 → 英語
             showingEnglish = true
             speakEnglish()
         }
@@ -52,31 +62,45 @@ final class PracticeViewModel: ObservableObject {
     
     func prev() {
         guard !phrases.isEmpty else { return }
+        stopSpeaking()
         
-        if showingEnglish {
-            // 英語→日本語に戻る
+        // どの状態からでも「1つ前のフレーズ（日本語）」へ
+        if currentIndex > 0 {
+            currentIndex -= 1
+            currentPhrase = phrases[currentIndex]
             showingEnglish = false
             speakJapanese()
         } else {
-            // 前の日本語フレーズへ
-            currentIndex = (currentIndex - 1 + phrases.count) % phrases.count
-            currentPhrase = phrases[currentIndex]
+            // 先頭ならそのまま日本語の先頭を読み上げ直し
+            showingEnglish = false
             speakJapanese()
         }
     }
-
+    
+    func stopSpeaking() {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+    
+    private let jaVolume: Float = 1.0   // 0.0 ... 1.0
+    private let enVolume: Float = 0.85  // 英語が大きく感じるなら下げる/小さければ上げる
+    private let jaRate: Float = AVSpeechUtteranceDefaultSpeechRate
+    private let enRate: Float = AVSpeechUtteranceDefaultSpeechRate
     
     private func speakJapanese() {
-        guard let phrase = currentPhrase else { return }
-        let utterance = AVSpeechUtterance(string: phrase.japanese)
-        utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
-        synthesizer.speak(utterance)
+        guard let p = currentPhrase else { return }
+        let u = AVSpeechUtterance(string: p.japanese)
+        u.voice = AVSpeechSynthesisVoice(language: "ja-JP")
+        u.volume = jaVolume
+        u.rate   = jaRate
+        synthesizer.speak(u)
     }
     
     private func speakEnglish() {
-        guard let phrase = currentPhrase else { return }
-        let utterance = AVSpeechUtterance(string: phrase.english)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        synthesizer.speak(utterance)
+        guard let p = currentPhrase else { return }
+        let u = AVSpeechUtterance(string: p.english)
+        u.voice = AVSpeechSynthesisVoice(language: "ja-JP")
+        u.volume = enVolume
+        u.rate   = enRate
+        synthesizer.speak(u)
     }
 }
